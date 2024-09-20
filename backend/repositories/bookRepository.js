@@ -1,49 +1,3 @@
-let bookDb = new Map()
-let codes = [1, 1, 1, 1, 1, 1, 1, 1, 1];
-
-let book1 = {
-    code: 'AS1',
-    catagory: 'AS',
-    num: 0,
-    name: '모던자바스크립트 딥 다이브',
-    author: '저자이름',
-    illustrator: '그림작가',
-    publisher: '출판사',
-    publication_date: '출판날짜',
-    translator: '번역가(엮은이)',
-}
-
-let book2 = {
-    code: 'AS2',
-    catagory: 'AS',
-    num: 0,
-    name: '책이름',
-    author: '저자이름',
-    illustrator: '그림작가',
-    publisher: '출판사',
-    publication_date: '출판날짜',
-    translator: '번역가(엮은이)',
-}
-
-let book3 = {
-    code: 'A1',
-    catagory: 'A',
-    num: 5,
-    name: '책이름',
-    author: '저자이름',
-    illustrator: '그림작가',
-    publisher: '출판사',
-    publication_date: '출판날짜',
-    translator: '번역가(엮은이)',
-}
-
-bookDb.set(book1.catagory + codes[book1.num]++, book1);
-bookDb.set(book2.catagory + codes[book2.num]++, book2);
-bookDb.set(book3.catagory + codes[book3.num]++, book3);
-
-// console.log(bookDb);
-
-
 const mysql = require('mysql2');
 
 const connection = mysql.createConnection({
@@ -102,10 +56,9 @@ const findBookByCode = (code) => {
 };
 
 // 책 개별 등록
-const saveBook = (code, book) => {
+const saveBook = (book, catagory) => {
     return new Promise((resolve, reject) => {
-        const newBook = { ...book, code };  // 책 객체에 코드 추가
-        console.log(newBook);
+        const newBook = { ...book };  // 책 객체에 코드 추가
 
         connection.query(
             'INSERT INTO book SET ?',  // 데이터베이스에 책 정보를 삽입
@@ -122,24 +75,56 @@ const saveBook = (code, book) => {
 
 // 책 개별 수정
 const updateBook = (code, body) => {
-    if (bookDb.has(code)) {
-        bookDb.set(code, body);
-        console.log(bookDb);
-        // 에러처리 필요
-        return true;
-    } return false;
-}
+    return new Promise((resolve, reject) => {
+        const fieldsToUpdate = [];
+        const values = [];
+
+        for (const key in body) {
+            fieldsToUpdate.push(`${key} = ?`);
+            values.push(body[key]);
+        }
+
+        // 수정할 책의 code를 바인딩할 값에 추가
+        values.push(code);
+
+        const query = `UPDATE book SET ${fieldsToUpdate.join(', ')} WHERE code = ?`;
+
+        connection.query(query, values, (err, result) => {
+            if (err) {
+                return reject(err);  // 쿼리 실행 중 오류 발생 시 reject
+            }
+
+            // 결과에 따라 성공 여부 처리
+            if (result.affectedRows > 0) {
+                resolve(true);  // 수정된 책이 있으면 true 반환
+            } else {
+                resolve(false);  // 수정된 책이 없으면 false 반환
+            }
+        });
+    });
+};
+
 
 // 책 개별 삭제
 const deleteBook = (code) => {
-    
-    if (bookDb.has(code)) {
-        bookDb.delete(code);
-        // 에러처리 필요
-        console.log(bookDb);
-        return true;
-    } return false;
-}
-// findBookByCode('AS2');
+    return new Promise((resolve, reject) => {
+
+        const query = 'DELETE FROM book WHERE code = ?';
+
+        connection.query(query, [code], (err, result) => {
+            if (err) {
+                return reject(err);  // 오류 발생 시 reject
+            }
+
+            // affectedRows로 삭제된 레코드가 있는지 확인
+            if (result.affectedRows > 0) {
+                resolve(true);  // 성공적으로 삭제된 경우 true 반환
+            } else {
+                resolve(false);  // 해당 책이 없으면 false 반환
+            }
+        });
+    });
+};
+
 
 module.exports = { codes, findBooks, findBookByCatagory, findBookByCode, saveBook, deleteBook, updateBook };
